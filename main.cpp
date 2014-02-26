@@ -712,7 +712,7 @@ public:
 	sf::Sprite				mSprite;
 	float					mCurrentFrame;
 	int						mEffectValue;
-	bool					mIsAlive;
+	bool					mIsMarkedForRemoval;
 
 	//Drop item constructor.
 	DropItem(sf::Texture& texture, std::string type, int effect, int x, int y) {
@@ -721,19 +721,20 @@ public:
 		mSprite.setTextureRect(sf::IntRect(0, 0, 32, 32));
 		mCurrentFrame = 0;
 		mEffectValue = effect;
-		mIsAlive = true;
+		mIsMarkedForRemoval = false;
 	}
 
 	//Drop item sprite render.
 	void update(float time) {
 		
-		mSprite.setPosition(mRect.left - offsetX, mRect.top - offsetY);
+		//if(~isMarkedForRemoval())
+			mSprite.setPosition(mRect.left - offsetX, mRect.top - offsetY);
 
 	}
 
 	void action(Player& player) {
 		player.heal(mEffectValue);
-		mIsAlive = false;
+		mIsMarkedForRemoval = true;
 	}
 
 	sf::FloatRect getRect() {
@@ -745,7 +746,7 @@ public:
 	}
 
 	bool isMarkedForRemoval() {
-		return ~mIsAlive;
+		return mIsMarkedForRemoval;
 	}
 
 };
@@ -937,11 +938,10 @@ int main() {
 		return EXIT_FAILURE;
 	Player player(playerTexture, hpBar, config.playerStartingX, config.playerStartingY, font);
 
-	//Creating test enemy.
+	//Enemy texture.
 	sf::Texture enemyTexture;
 	if(!enemyTexture.loadFromFile("enemySpriteList.png"))
 		return EXIT_FAILURE;
-	//Enemy enemy(enemyTexture, 400, 360, font);
 
 	//Creating test health potion.
 	sf::Texture healthPotionTexture;
@@ -992,11 +992,6 @@ int main() {
 		for(int i = 0; i < drops.size(); ++i)
 			if((player.getRect().intersects(drops[i].getRect())) && (~drops[i].isMarkedForRemoval()))
 				drops[i].action(player);
-
-		//Consumption of the health potion.
-		//if((player.getRect().intersects(healthPotion.getRect())) && (healthPotion.mIsAlive)) {
-		//	healthPotion.action(player);
-		//}
 
 		//if(sf::Keyboard::isKeyPressed(sf::Keyboard::H))	player.mHP += 5;
 	
@@ -1068,9 +1063,7 @@ int main() {
 			}
 		}
 
-		//for(int i = 0; i < drops.size(); ++i)
-		//	if(drops[i].isMarkedForRemoval())
-		//		drops.erase(drops.begin() + i);
+		
 
 		//Rendering all the objects.
 		//mWindow.draw(enemy.mSprite);
@@ -1095,6 +1088,11 @@ int main() {
 		mWindow.draw(textMana);
 		mWindow.display();
 
+		for(int i = 0; i < drops.size(); ++i)
+			if(drops[i].isMarkedForRemoval()) {
+				drops.erase(drops.begin() + i );
+				--i;
+			}
 	}
 
 	//Clearing memory.
