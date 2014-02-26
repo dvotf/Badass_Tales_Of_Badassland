@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <ctime>
 #include <sstream>
+#include <vector>
 
 
 //FONT - BIG.
@@ -135,6 +136,7 @@ private:
 
 };
 
+//World.hpp
 class World {
 public:
 
@@ -153,6 +155,7 @@ private:
 
 };
 
+//World.cpp
 void World::resolveCollision(sf::FloatRect& rect, sf::Vector2f movement, int direction, int tileSize) {
 
 	for(int i = rect.top / tileSize; i < (rect.top + rect.height) / tileSize; ++i)
@@ -691,6 +694,14 @@ public:
 	sf::FloatRect getRect() {
 		return mRect;
 	}
+
+	sf::Sprite getSprite() {
+		return mSprite;
+	}
+
+	sf::Text getTextName() {
+		return mTextName;
+	}
 	
 };
 
@@ -727,6 +738,14 @@ public:
 
 	sf::FloatRect getRect() {
 		return mRect;
+	}
+
+	sf::Sprite getSprite() {
+		return mSprite;
+	}
+
+	bool isMarkedForRemoval() {
+		return ~mIsAlive;
 	}
 
 };
@@ -859,7 +878,18 @@ int main() {
 	//Clocks.
 	sf::Clock gameClock;
 	sf::Clock invincibilityClock;
+	sf::Clock spawnClock;
 
+
+
+
+
+
+	//
+	//GRAPHICS.
+	//
+	//
+	//
 	sf::RectangleShape rectangle(sf::Vector2f(config.tileSize, config.tileSize));	//For tiles (temporary).
 
 	//Creating a font.
@@ -895,6 +925,12 @@ int main() {
 	if(!hpBar.loadFromFile("HPBar.png"))
 		return EXIT_FAILURE;
 
+
+
+	//
+	//UNITS
+	//
+	//
 	//Creating player.
 	sf::Texture playerTexture;
 	if(!playerTexture.loadFromFile("playerSpriteList.png"))
@@ -905,13 +941,25 @@ int main() {
 	sf::Texture enemyTexture;
 	if(!enemyTexture.loadFromFile("enemySpriteList.png"))
 		return EXIT_FAILURE;
-	Enemy enemy(enemyTexture, 400, 360, font);
+	//Enemy enemy(enemyTexture, 400, 360, font);
 
 	//Creating test health potion.
 	sf::Texture healthPotionTexture;
 	if(!healthPotionTexture.loadFromFile("healthPotion.png"))
 		return EXIT_FAILURE;
 	DropItem healthPotion(healthPotionTexture, "healthItem", 40, 600, 150);
+
+
+	//Object arrays.
+	std::vector<Enemy> enemies;
+	enemies.push_back(*(new Enemy(enemyTexture, 400, 360, font)));
+
+	std::vector<DropItem> drops;
+	drops.push_back(*(new DropItem(healthPotionTexture, "healthItem", 40, 600, 150)));
+
+
+
+
 
 	//Game cycle.
 	while(mWindow.isOpen()) {
@@ -926,26 +974,45 @@ int main() {
 				mWindow.close();
 		}
 
-		//Updating sprites of all the objects.
+		//Updating all objects.
 		player.update(time, levelMap, &config);
-		enemy.update(time, levelMap, &config);
-		healthPotion.update(time);
+		//healthPotion.update(time);
+
+		for(int i = 0; i < enemies.size(); ++i)	enemies[i].update(time, levelMap, &config);
+		for(int i = 0; i < drops.size(); ++i)	drops[i].update(time);
 
 
+		//Resolving collisions. Should move to World class methods.
+		for(int i = 0; i < enemies.size(); ++i)
+			if((player.getRect().intersects(enemies[i].getRect())) && (invincibilityClock.getElapsedTime().asSeconds() > config.invincibilityTime)) {
+				enemies[i].dealDamage(player);
+				invincibilityClock.restart();
+			}
 
-		//Player takes damage from an evil elf and becomes invincible for (invincibilityTime) seconds. Also, sound added. Also, sound de-added.
-		if((player.getRect().intersects(enemy.getRect())) && (invincibilityClock.getElapsedTime().asSeconds() > config.invincibilityTime)) {
-			enemy.dealDamage(player);
-			invincibilityClock.restart();
-		}
-
+		for(int i = 0; i < drops.size(); ++i)
+			if((player.getRect().intersects(drops[i].getRect())) && (~drops[i].isMarkedForRemoval()))
+				drops[i].action(player);
 
 		//Consumption of the health potion.
-		if((player.getRect().intersects(healthPotion.getRect())) && (healthPotion.mIsAlive)) {
-			healthPotion.action(player);
+		//if((player.getRect().intersects(healthPotion.getRect())) && (healthPotion.mIsAlive)) {
+		//	healthPotion.action(player);
+		//}
+
+		//if(sf::Keyboard::isKeyPressed(sf::Keyboard::H))	player.mHP += 5;
+	
+		
+		//Spawning elves.
+		if((sf::Keyboard::isKeyPressed(sf::Keyboard::G)) && (spawnClock.getElapsedTime().asSeconds() > 0.5)) {
+			enemies.push_back(*(new Enemy(enemyTexture, 400, 360, font)));
+			spawnClock.restart();
 		}
 
-		if(sf::Keyboard::isKeyPressed(sf::Keyboard::H))	player.mHP += 5;
+		//Spawning health potions.
+		if((sf::Keyboard::isKeyPressed(sf::Keyboard::H)) && (spawnClock.getElapsedTime().asSeconds() > 0.5)) {
+			drops.push_back(*(new DropItem(healthPotionTexture, "healthItem", 40, rand() % 400 + 120, rand() % 600 + 120)));
+			spawnClock.restart();
+		}
+
 
 		//HUD display.
 		std::ostringstream hudHealth;
@@ -1001,10 +1068,24 @@ int main() {
 			}
 		}
 
+		//for(int i = 0; i < drops.size(); ++i)
+		//	if(drops[i].isMarkedForRemoval())
+		//		drops.erase(drops.begin() + i);
+
 		//Rendering all the objects.
-		mWindow.draw(enemy.mSprite);
-		mWindow.draw(enemy.mTextName);
-		mWindow.draw(healthPotion.mSprite);
+		//mWindow.draw(enemy.mSprite);
+		//mWindow.draw(enemy.mTextName);
+
+		for(int i = 0; i < enemies.size(); ++i) {
+
+			mWindow.draw(enemies[i].getSprite());
+			mWindow.draw(enemies[i].getTextName());
+
+		}
+
+		for(int i = 0; i < drops.size(); ++i)
+			mWindow.draw(drops[i].getSprite());
+
 
 		mWindow.draw(player.mSprite);
 		mWindow.draw(player.mHpSprite);
